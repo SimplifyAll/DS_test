@@ -3,9 +3,11 @@ import pickle
 import tarfile
 import numpy as np
 from skimage import img_as_float32
+from skimage.transform import resize
 from urllib.request import urlretrieve
+from keras.utils import Sequence
 
-class CIFAR10_loader:
+class CIFAR10Loader:
     '''
     CIFAR10 dataset loader.
 
@@ -70,7 +72,7 @@ class CIFAR10_loader:
         return images, labels #, one_hot_labels
 
 
-class CIFAR10_downloader:
+class CIFAR10Downloader:
 
     DATA_ARCH = "cifar-10-python.tar.gz"
     DATA_DIR = "cifar-10-batches-py"
@@ -100,3 +102,29 @@ class CIFAR10_downloader:
             self.download_cifar()
         elif not os.path.exists(os.path.join(self.data_path, self.DATA_DIR)):
             self.extract_tar_gz()
+
+class CIFAR10Sequence(Sequence):
+
+    def __init__(self, target_size, batch_size, x_set, y_set=None):
+        self.x, self.y = x_set, y_set
+        self.batch_size = batch_size
+        self.target_size = target_size
+
+    def __len__(self):
+        return int(np.ceil(len(self.x) / float(self.batch_size)))
+
+    def __getitem__(self, idx):
+        start = idx * self.batch_size
+        end = (idx + 1) * self.batch_size
+        batch_x = self.x[start:end]
+        batch_y = None
+        if self.y is not None:
+            batch_y = self.y[start:end]
+        
+        samples = batch_x.shape[0]
+        print(f"Computing batch: {idx}, indexes: {start}:{start + samples - 1}")
+              
+        return (resize(batch_x,
+                      output_shape=(samples, self.target_size, self.target_size),
+                      anti_aliasing=True, mode="reflect"), 
+                np.array(batch_y))
